@@ -1,7 +1,6 @@
 import time
 from functions import returnLinearFunction
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
+from animation import createCircle, createAnimation, finalUpdatePosition
 
 class Field:
     def __init__(self):
@@ -26,69 +25,16 @@ class Field:
             player.setNextPosition((x, y))
             player.determineNextPath(duration)
             
-    def create_single_circle_plot(self, circles):
-        """
-        Demonstrates how to create and display a single circle using Matplotlib.
-        """
-        # 1. Create a figure and a set of subplots (axes)
-        #    The 'fig' is the overall window, 'ax' is the plotting area.
-        fig, ax = plt.subplots(figsize=(6, 6))
+   
 
-        # 2. Set axis limits and aspect ratio
-        #    Setting equal aspect ratio ensures the circle looks like a circle, not an ellipse.
-        ax.set_xlim(0, 10)
-        ax.set_ylim(0, 10)
-        ax.set_aspect('equal', adjustable='box') # Very important for circles!
-
-        # Optional: Add a grid for better visualization of coordinates
-        #ax.grid(True, linestyle='--', alpha=0.6)
-
-        # 3. Create the Circle patch object
-        #    Parameters:
-        #    - (x_center, y_center): The coordinates of the circle's center
-        #    - radius: The radius of the circle
-        #    - color: The fill color of the circle (e.g., 'blue', 'red', hex codes like '#FF5733')
-        #    - alpha: Transparency (0.0 fully transparent, 1.0 fully opaque)
-        #    - ec (edgecolor): Color of the circle's border
-        #    - lw (linewidth): Thickness of the circle's border
-
-        # 4. Add the circle patch to the axes
-        for circle in circles:
-            ax.add_patch(circle)
-        
-
-        # 5. Add labels and title (optional, but good practice)
-        ax.set_xlabel("X-coordinate")
-        ax.set_ylabel("Y-coordinate")
-        ax.set_title("A Single Matplotlib Circle")
-
-        # 6. Display the plot
-        plt.show()
 
     def run_simulation(self, duration):
-        startTime = time.time()
-        currentTime = startTime
-        circles = []
-
-        while(currentTime - startTime < duration):
-            for player in self.players.values():
-                player.updateMovement(currentTime - startTime)
-                circles.append(patches.Circle(
-                    (player.currentX, player.currentY),          # Center at (x=5, y=5)
-                    radius=0.25,      # Radius of 2.0 units
-                    color='red', # Fill color
-                    alpha=1.0,       # Make fill transparent
-                    ec='darkred',    # Edge color
-                    lw=1             # Line width of the edge
-                ))
-
-            #draw all the circles
-            self.create_single_circle_plot(circles)
-
-            currentTime = time.time()
+        createAnimation(duration, self.players.values())
+        finalUpdatePosition(self.players.values())
         
         for player in self.players.values():
                 player.finalUpdate()
+                
 
 
 class Player:
@@ -98,6 +44,7 @@ class Player:
         self.nextX = self.currentX
         self.nextY = self.currentY
         self.id = id
+        self.circle = createCircle((self.currentX, self.currentY))
         self.nextPath = Path((self.currentX, self.currentY), (self.nextX, self.nextY), "Straight", 1)
 
     def setNextPosition(self, coords):
@@ -149,7 +96,7 @@ class Path:
 
 currField = Field()
 currField.add_player(Player((0,0), "Player 1"))
-currField.add_player(Player((0,1), "Player 2"))
+currField.add_player(Player((0,10), "Player 2"))
 currField.updateNextPositions(5)
 currField.run_simulation(5)
 currField.updateNextPositions(5)
