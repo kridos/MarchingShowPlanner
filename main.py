@@ -1,6 +1,8 @@
 import time
 from functions import returnLinearFunction
 from animation import createCircle, createAnimation, finalUpdatePosition
+import tkinter as tk
+from tkinter import ttk
 
 class Field:
     def __init__(self):
@@ -13,7 +15,7 @@ class Field:
         return self.players.get(player_id)
 
     def updateSinglePosition(self, player_id, next_position):
-        player = get_player(player_id)
+        player = self.get_player(player_id)
         player.setNextPosition(next_position)
 
     def updateNextPositions(self, duration):
@@ -94,17 +96,33 @@ class Path:
         return (self.functionX(currentTime), self.functionY(currentTime))
 
 
-currField = Field()
+"""currField = Field()
 currField.add_player(Player((0,0), "Player 1"))
 currField.add_player(Player((0,10), "Player 2"))
 currField.updateNextPositions(5)
 currField.run_simulation(5)
-currField.updateNextPositions(5)
+currField.updateNextPositions(5)"""
+
+#window
+window = tk.Tk()
+window.title("GUI")
+window.geometry('600x600')
+
+#title
+title_label = ttk.Label(master=window, text = "Home Screen", font= 'Arial 50 bold')
+title_label.pack()
+
+#buttons
+button_frame = ttk.Frame(master=window)
+new_project_bt = ttk.Button(master=button_frame, text="Start New Project")
+saved_project_bt = ttk.Button(master=button_frame, text="View Saved Projects")
+
+new_project_bt.pack(side = 'left', padx=10)
+saved_project_bt.pack(side = 'left')
+button_frame.pack(pady = 10)
 
 
-
-# Call the function to display the circle
-
+window.mainloop()
 
 
 
