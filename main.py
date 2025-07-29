@@ -117,7 +117,7 @@ button_frame = ttk.Frame(master=window)
 new_project_bt = ttk.Button(master=button_frame, text="Start New Project")
 saved_project_bt = ttk.Button(master=button_frame, text="View Saved Projects")
 
-new_project_bt.pack(side = 'left', padx=10)
+new_project_bt.pack(side = 'left', padx = 10)
 saved_project_bt.pack(side = 'left')
 button_frame.pack(pady = 10)
 
