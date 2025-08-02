@@ -1,146 +1,71 @@
-import matplotlib.pyplot as plt
-from matplotlib import animation
-import numpy as np
 import time
+import tkinter as tk
 
+# Constants
+FPS = 60
+FRAME_DELAY = int(1000 / FPS)  # milliseconds
 
-fig = plt.gcf()
-ax = plt.axes(xlim = (0, 120), ylim = (0, 53.33333))
-fps = 60
-animations = []
-anime = None
-currentPath = 0
+# Canvas global (or pass it as argument)
+canvas = None  # You need to assign this to your actual canvas instance somewhere
 
-def createCircle(position):
-    circle = plt.Circle(
-        position,        # Center at (x=5, y=5)
-        radius=1,     # Radius of 2.0 units
-        color='red',     # Fill color
-        alpha=1.0,       # Make fill transparent
-        ec='black',    # Edge color
-        lw=1             # Line width of the edge
-    )
-    
-    ax.add_patch(circle)
-    
-    return circle
-
-def getPathAtTime(currTime, player):
-    global currentPath
-    
-    for i in range(currentPath, len(player.nextPath)):
-        path = player.nextPath[i]
-        if path.start_time <= currTime and currTime < path.start_time + path.duration:
-            currentPath = i
-            return
-
-
-def updatePosition(frame, players):
-    
-    if frame == 0:
-        global start_time
-        start_time = time.time()
-        
-    if frame == animation_frames - 1:
-        print("Animation duration:", time.time() - start_time, "seconds")
-        
-    currTime = time.time() - start_time
-    
-    getPathAtTime(currTime, players[0])
-    
-    drawing_circles = []
-    for player in players:
-        center = (player.getPath(currentPath).functionX(currTime), player.getPath(currentPath).functionY(currTime))
-        player.circle.circle.set_center(center)
-        drawing_circles.append(player.circle.circle)
-
-    return drawing_circles
-
-def finalUpdatePosition(players):
-    
-    for player in players:
-        print(player.getLastPath().end)
-        player.circle.circle.set_center(player.getLastPath().end)
-        
-        
-
-
-def createStatic():
-    global anime
-    anime = None
-    
-    ax.set_aspect('equal')
-    ax.set_xticks(np.arange(0, 120 + 1, 5))
-    ax.set_yticks(np.arange(0, 54, 5))
-    ax.grid(True, linestyle='--', alpha=0.6)
-    
-    
-    fig.canvas.draw()
-    
-def get_global_path_index(current_time, players):
+def create_circle(position, radius=10, color='red'):
     """
-    Assuming all players have the same timing and number of paths.
-    Find the index i such that current_time is within players[0].nextPath[i].
+    Create a circle on the Tkinter canvas at position (x, y).
+    Returns the canvas oval ID.
     """
-    for i, path in enumerate(players[0].nextPath):
-        if path.start_time <= current_time < path.start_time + path.duration:
+    x, y = position
+    r = radius
+    oval_id = canvas.create_oval(x - r, y - r, x + r, y + r,
+                                 fill=color, outline='black', width=1)
+    return oval_id
+
+
+def get_path_index_at_time(curr_time, player):
+    """
+    Find which path index the current time fits in for this player.
+    """
+    for i, path in enumerate(player.nextPath):
+        if path.start_time <= curr_time < path.start_time + path.duration:
             return i
-    # If time beyond last path, return last path index
-    return len(players[0].nextPath) - 1
+    # If current time is beyond last path, return last path index
+    return len(player.nextPath) - 1
+
+
+def update_positions(players, start_time, duration):
+    """
+    Update player positions based on elapsed time since start_time.
+    Schedule next update using Tkinter's after().
+    """
+    current_time = time.time() - start_time
     
-def run_manual_animation(players, duration):
-    start_time = time.time()
-    current_time = 0
-    
-    while current_time < duration:
-        current_time = time.time() - start_time
-        path_index = get_global_path_index(current_time, players)
-        
+    if current_time > duration:
+        # Animation ended: set all players to last position and stop updating
         for player in players:
-            if path_index < len(player.nextPath):
-                path = player.nextPath[path_index]
-                # Check if current time is within this path duration for player (optional safety)
-                if path.start_time <= current_time < path.start_time + path.duration:
-                    x = path.functionX(current_time)
-                    y = path.functionY(current_time)
-                    player.circle.circle.set_center((x, y))
-                else:
-                    # Path exists but current_time outside its interval — freeze at end
-                    x, y = path.end
-                    player.circle.circle.set_center((x, y))
-            else:
-                # Player doesn't have this path index — stay at last known position
-                x, y = player.getLastPath().end
-                player.circle.circle.set_center((x, y))
-        
-        time.sleep(0.01)  # pause briefly to update the plot
-        
-    # Final update
+            x, y = player.getLastPath().end
+            canvas.coords(player.circle_id, x - 10, y - 10, x + 10, y + 10)
+        return  # Stop animation
+    
     for player in players:
-        player.circle.circle.set_center(player.getLastPath().end)
+        path_idx = get_path_index_at_time(current_time, player)
+        path = player.nextPath[path_idx]
         
-    fig.canvas.draw()
+        if path.start_time <= current_time < path.start_time + path.duration:
+            x = path.functionX(current_time)
+            y = path.functionY(current_time)
+        else:
+            x, y = path.end
+        
+        # Update the oval's position on canvas
+        canvas.coords(player.circle_id, x - 10, y - 10, x + 10, y + 10)
     
-    
-def createAnimation(duration, players):
-    global anime, start, animation_frames
+    # Schedule next frame
+    canvas.after(FRAME_DELAY, update_positions, players, start_time, duration)
 
-    ax.set_aspect('equal')
-    ax.set_xticks(np.arange(0, 120 + 1, 5))
-    ax.set_yticks(np.arange(0, 54, 5))
-    ax.grid(True, linestyle='--', alpha=0.6)
-    animation_frames = round(duration * fps)
 
-    anime = animation.FuncAnimation(
-        fig, updatePosition,
-        fargs=(players,),
-        frames = animation_frames,
-        interval = 1000 / fps,              
-        repeat=False,       
-        blit = True                   
-    )
-
-    fig.canvas.draw()
-    
-def getFig():
-    return fig
+def run_animation(players, duration):
+    """
+    Starts the animation loop.
+    Each player should have their circle created and stored as player.circle_id.
+    """
+    start_time = time.time()
+    update_positions(players, start_time, duration)
