@@ -2,6 +2,8 @@ import time
 from functions import returnLinearFunction
 import tkinter as tk
 from tkinter import ttk
+from PIL import Image, ImageTk
+
 
 # --- Animation helper functions (replace your animation.py) ---
 FPS = 60
@@ -27,18 +29,17 @@ def update_positions(players, start_time, duration):
     if current_time > duration:
         for player in players:
             x, y = player.getLastPath().end
-            canvas.coords(player.circle_id, x - 10, y - 10, x + 10, y + 10)
+            canvas.coords(player.circle_id, x - 5, y - 5, x + 5, y + 5)
         return
     
     for player in players:
         path_idx = get_path_index_at_time(current_time, player)
         path = player.nextPath[path_idx]
         if path.start_time <= current_time < path.start_time + path.duration:
-            x = path.functionX(current_time)
-            y = path.functionY(current_time)
+            x, y = path.currentPosition(current_time)
         else:
             x, y = path.end
-        canvas.coords(player.circle_id, x - 10, y - 10, x + 10, y + 10)
+        canvas.coords(player.circle_id, x - 5, y - 5, x + 5, y + 5)
     
     canvas.after(FRAME_DELAY, update_positions, players, start_time, duration)
 
@@ -49,6 +50,7 @@ def run_animation(players, duration):
 # --- End animation helper functions ---
 
 total_duration = 0
+
 
 class Field:
     def __init__(self):
@@ -98,6 +100,9 @@ class DraggableCircle:
         # Record the initial mouse position
         self._drag_data["x"] = event.x
         self._drag_data["y"] = event.y
+        player_id.config(text=self.player.id)
+        player_color.config(text=canvas.itemcget(self.player.circle_id, "fill"))
+        update_player.config(state="normal")
 
     def on_motion(self, event):
         # Calculate movement delta
@@ -120,8 +125,6 @@ class DraggableCircle:
 
     def on_release(self, event):
         # Optional: logic when mouse released
-        print(self.player.currentX)
-        print(self.player.currentY)
         pass
 
 
@@ -197,6 +200,9 @@ window = tk.Tk()
 window.title("Create a Marching Show")
 window.geometry('800x800')
 
+image = Image.open("football_field.jpg")  # use your path here
+photo = ImageTk.PhotoImage(image)
+
 
 
 def open():
@@ -217,7 +223,7 @@ def open():
     done_button.pack()
 
 def submit():
-    global player_id, player_color, change_id, change_color, update_player, animation_save, new_show, move_duration, total_duration, canvas
+    global player_id, player_color, change_id, change_color, update_player, animation_save, new_show, move_duration, total_duration, canvas, display_animation
     
     player_amt = players_input.get()
     show_preferences.destroy()
@@ -232,8 +238,11 @@ def submit():
     # Optionally you could pack a new canvas in new_show but here we use main canvas
     
     # Create and pack the canvas
-    canvas = tk.Canvas(new_show, width=1200, height=533, bg="white")
+    canvas = tk.Canvas(new_show, width=photo.width(), height=photo.height())
     canvas.pack()
+    
+    canvas.create_image(0, 0, image=photo, anchor="nw")
+    canvas.bg_photo = photo
     
     for i in range(int(player_amt)):
         currField.add_player(Player((60,30), "Player " + str(i + 1)))
@@ -262,7 +271,7 @@ def submit():
     animation_save = ttk.Button(master=new_show, text="Save Start", command=save_start)
     animation_save.pack()
     
-    display_animation = ttk.Button(master=new_show, text="Display Animation", command=start_animation)
+    display_animation = ttk.Button(master=new_show, text="Display Animation", command=start_animation, state="disabled")
     display_animation.pack()
     
     quit_btn = ttk.Button(master=new_show, text="Quit", command=home_screen)
@@ -280,21 +289,31 @@ def home_screen():
 def save_start():
     global animation_duration, total_duration, animation_save
     
-    animation_save.destroy()
-    animation_save = ttk.Button(master=new_show, text="Save End", command=save_end)
-    animation_save.pack()
+    display_animation.config(state="disabled")
     
-    animation_duration = int(move_duration.get())
+    animation_save.config(text="Save End", command=save_end)
+    
+    animation_duration = float(move_duration.get())
     
     for player in currField.players.values():
-        player.createNextPath(start=(player.currentX, player.currentY), duration=animation_duration, start_time=total_duration)
+        coords = canvas.coords(player.circle_id)
+        cx = (coords[0] + coords[2]) / 2
+        cy = (coords[1] + coords[3]) / 2
+        player.createNextPath(start=(cx, cy), duration=animation_duration, start_time=total_duration)
         
     total_duration += animation_duration
         
 def save_end():
+    display_animation.config(state="normal")
+    
     for player in currField.players.values():
-        player.reviseLastPathEnd((player.currentX, player.currentY))
+        coords = canvas.coords(player.circle_id)
+        cx = (coords[0] + coords[2]) / 2
+        cy = (coords[1] + coords[3]) / 2
+        player.reviseLastPathEnd((cx, cy))
         player.calculateLastPath()
+        
+    animation_save.config(text="Save Start", command=save_start)
     
 def update_player_event():
     
