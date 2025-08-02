@@ -1,9 +1,14 @@
 import time
 from functions import returnLinearFunction
-from animation import createCircle, createAnimation, finalUpdatePosition
+from animation import createCircle, createAnimation, finalUpdatePosition, createStatic, getFig, run_manual_animation
 import tkinter as tk
 from tkinter import ttk
 import matplotlib.colors as mcolors
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import time
+
+
+total_duration = 0
 
 def rgba_to_named(rgba):
     for name, hex_val in mcolors.CSS4_COLORS.items():
@@ -58,7 +63,7 @@ class DraggableCircle:
         DraggableCircle.dragging_circle = None
         
         self.press = None
-        self.player.x, self.player.y = self.circle.center
+        self.player.currentX, self.player.currentY = self.circle.center
         self.circle.figure.canvas.draw()
 
 class Field:
@@ -85,15 +90,20 @@ class Field:
             player.determineNextPath(duration)
             
     def display_static(self):
-       createAnimation(0, self.players.values(), True)
+       createStatic()
 
 
     def run_simulation(self, duration):
-        createAnimation(duration, self.players.values(), False)
-        finalUpdatePosition(self.players.values())
+        #createAnimation(duration, list(self.players.values()))
+        run_manual_animation(list(self.players.values()), duration)
+
+        #finalUpdatePosition(self.players.values())
         
         for player in self.players.values():
                 player.finalUpdate()
+                
+    def getFigure(self):
+        return getFig()
                 
 
 
@@ -110,6 +120,21 @@ class Player:
     def setNextPosition(self, coords):
         self.nextX = coords[0]
         self.nextY = coords[1]
+        
+    def getLastPath(self):
+        return self.nextPath[len(self.nextPath) - 1]
+    
+    def getPath(self, i):
+        return self.nextPath[i]
+        
+    def calculateLastPath(self):
+        self.nextPath[len(self.nextPath) - 1].calculateFunction()
+        
+    def createNextPath(self, start, duration, start_time, end = (0,0)):
+        self.nextPath.append(Path(start, end, "Straight", duration, start_time))
+        
+    def reviseLastPathEnd(self, end):
+        self.nextPath[len(self.nextPath) - 1].end = end
 
     def determineNextPath(self, duration):
         self.nextPath.append(Path((self.currentX, self.currentY), (self.nextX, self.nextY), "Straight", duration))
@@ -134,23 +159,27 @@ class Player:
         self.currentX = self.nextX
         self.currentY = self.nextY
 
-    
-    def printCoords(self):
-        print(f'({self.currentX}, {self.currentY})')
-
 
 class Path:
     #change type into an enum later
-    def __init__(self, start, end, pathType, duration):
+    def __init__(self, start, end, pathType, duration, start_time = 0.0):
         self.start = start
         self.end = end
         self.duration = duration
+        self.functionX = None
+        self.functionY = None
+        self.pathType = pathType
+        self.start_time = start_time
 
-        if pathType == "Straight":
-            self.functionX = returnLinearFunction(start[0], end[0], duration)
-            self.functionY = returnLinearFunction(start[1], end[1], duration)
+    def calculateFunction(self):
+        if self.pathType == "Straight":
+            self.functionX = returnLinearFunction(self.start[0], self.end[0], self.duration, self.start_time)
+            self.functionY = returnLinearFunction(self.start[1], self.end[1], self.duration, self.start_time)
 
     def currentPosition(self, currentTime):
+        if self.functionX == None or self.functionY == None:
+            raise Exception("No function defined for X or Y")
+        
         return (self.functionX(currentTime), self.functionY(currentTime))
 
 
@@ -184,7 +213,7 @@ def open():
     done_button.pack()
 
 def submit():
-    global player_id, player_color, change_id, change_color, update_player
+    global player_id, player_color, change_id, change_color, update_player, animation_save, new_show, move_duration
     
     
     player_amt = players_input.get()
@@ -193,11 +222,14 @@ def submit():
     
     for i in range(int(player_amt)):
         currField.add_player(Player((60,30), "Player " + str(i + 1)))
-        print(i)
         
     new_show = tk.Toplevel()
     new_show.title("New Show")
-    new_show.geometry("600x600")
+    new_show.geometry("600x850")
+    
+    canvas = FigureCanvasTkAgg(currField.getFigure(), master=new_show)
+    canvas.get_tk_widget().pack()
+    canvas.draw()
     
     player_id = ttk.Label(master=new_show, text = "No Player Selected", font= 'Arial 24')
     player_id.pack()
@@ -215,7 +247,49 @@ def submit():
     update_player = ttk.Button(master=new_show, text="Update Player", command=update_player_event, state="disabled")
     update_player.pack()
     
+    duration_label = ttk.Label(master=new_show, text = "Duration Time (Seconds)", font= 'Arial 24')
+    duration_label.pack()
+    
+    move_duration = ttk.Entry(new_show, width=50)
+    move_duration.pack()
+    
+    animation_save = ttk.Button(master=new_show, text="Save Start", command=save_start)
+    animation_save.pack()
+    
+    display_animation = ttk.Button(master=new_show, text="Display Animation", command=start_animation)
+    display_animation.pack()
+    
+    quit = ttk.Button(master=new_show, text="Quit", command=home_screen)
+    quit.pack()
+    
     currField.display_static()
+    
+def start_animation():
+    currField.run_simulation(total_duration)
+    
+def home_screen():
+    new_show.destroy()
+    window.deiconify()
+    
+def save_start():
+    global animation_duration, animation_save, total_duration
+    
+    animation_save.destroy()
+    animation_save = ttk.Button(master=new_show, text="Save End", command=save_end)
+    animation_save.pack()
+    
+    animation_duration = int(move_duration.get())
+    
+    
+    for player in currField.players.values():
+        player.createNextPath(start=(player.currentX, player.currentY), duration=animation_duration, start_time=total_duration)
+        
+    total_duration += animation_duration
+        
+def save_end():
+    for player in currField.players.values():
+        player.reviseLastPathEnd((player.currentX, player.currentY))
+        player.calculateLastPath()
     
     
 def update_player_event():
