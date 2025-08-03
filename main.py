@@ -66,17 +66,6 @@ class Field:
         player = self.get_player(player_id)
         player.setNextPosition(next_position)
 
-    def updateNextPositions(self, duration):
-        for player in self.players.values():
-            print(f'{player.id} ({player.currentX}, {player.currentY})')
-            x = float(input("Enter the next x position: "))
-            y = float(input("Enter the next y position: "))
-            player.setNextPosition((x, y))
-            player.determineNextPath(duration)
-            
-    def display_static(self):
-        # For Tkinter, maybe just clear and redraw grid or static elements if needed
-        pass
 
     def run_simulation(self, duration):
         run_animation(list(self.players.values()), duration)
@@ -159,14 +148,11 @@ class Player:
     def calculateLastPath(self):
         self.nextPath[-1].calculateFunction()
         
-    def createNextPath(self, start, duration, start_time, end = (0,0)):
-        self.nextPath.append(Path(start, end, "Straight", duration, start_time))
+    def createNextPath(self, start, duration, start_time, end = (0,0), pathType = "Straight"):
+        self.nextPath.append(Path(start, end, pathType, duration, start_time))
         
     def reviseLastPathEnd(self, end):
         self.nextPath[-1].end = end
-
-    def determineNextPath(self, duration):
-        self.nextPath.append(Path((self.currentX, self.currentY), (self.nextX, self.nextY), "Straight", duration))
 
     def finalUpdate(self):
         self.currentX = self.nextX
@@ -177,20 +163,21 @@ class Path:
         self.start = start
         self.end = end
         self.duration = duration
-        self.functionX = None
-        self.functionY = None
+        self.function = None
         self.pathType = pathType
         self.start_time = start_time
 
-    def calculateFunction(self):
+    def calculateFunction(self, center = (0,0)):
         if self.pathType == "Straight":
-            self.functionX = returnLinearFunction(self.start[0], self.end[0], self.duration, self.start_time)
-            self.functionY = returnLinearFunction(self.start[1], self.end[1], self.duration, self.start_time)
+            self.function = returnLinearFunction(self.start, self.end, self.duration, self.start_time)
+            
+        if self.pathType == "Circular":
+            self.function = returnLinearFunction(self.start, self.end, self.duration, center, self.start_time)
 
     def currentPosition(self, currentTime):
-        if self.functionX is None or self.functionY is None:
-            raise Exception("No function defined for X or Y")
-        return (self.functionX(currentTime), self.functionY(currentTime))
+        if self.function is None:
+            raise Exception("No function defined")
+        return self.function(currentTime)
 
 # --- UI setup ---
 
