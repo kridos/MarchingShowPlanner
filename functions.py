@@ -15,12 +15,14 @@ def returnCircularFunction(start, end, duration, center, start_time = 0.0):
 
     def circularOutput(currentTime):
         cx, cy = center
-        r = math.sqrt((start[0] - cx)**2 + (start[1] - cy)**2)
+        start_r = math.sqrt((start[0] - cx)**2 + (start[1] - cy)**2)
+        end_r = math.sqrt((end[0] - cx)**2 + (end[1] - cy)**2)
         
         start_angle = math.atan2(start[1] - cy, start[0] - cx)
         end_angle = math.atan2(end[1] - cy, end[0] - cx)
         
         theta = start_angle + (end_angle - start_angle) * ((currentTime - start_time) / duration)
+        r = start_r + (end_r - start_r) * ((currentTime - start_time) / duration)
         
         x = cx + r * math.cos(theta)
         y = cy + r * math.sin(theta)

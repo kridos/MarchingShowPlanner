@@ -1,5 +1,5 @@
 import time
-from functions import returnLinearFunction
+from functions import returnLinearFunction, returnCircularFunction
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
@@ -10,11 +10,15 @@ FPS = 60
 FRAME_DELAY = int(1000 / FPS)  # milliseconds
 canvas = None  # will be assigned later
 
-def create_circle(position, radius=5, color='red'):
+def create_circle(position, radius=5, color='red', tag=None):
     x, y = position
     r = radius
-    oval_id = canvas.create_oval(x - r, y - r, x + r, y + r,
-                                 fill=color, outline='black', width=1)
+    if tag:
+        oval_id = canvas.create_oval(x - r, y - r, x + r, y + r,
+                                     fill=color, outline='black', width=1, tags=tag)
+    else:
+        oval_id = canvas.create_oval(x - r, y - r, x + r, y + r,
+                                     fill=color, outline='black', width=1)
     return oval_id
 
 def get_path_index_at_time(curr_time, player):
@@ -92,6 +96,8 @@ class DraggableCircle:
         player_id.config(text=self.player.id)
         player_color.config(text=canvas.itemcget(self.player.circle_id, "fill"))
         update_player.config(state="normal")
+        path_mode_var.set(self.player.path_mode)
+        
 
     def on_motion(self, event):
         # Calculate movement delta
@@ -115,6 +121,7 @@ class DraggableCircle:
     def on_release(self, event):
         # Optional: logic when mouse released
         pass
+    
 
 
 # Update Player class __init__:
@@ -131,6 +138,7 @@ class Player:
         # Create draggable handler
         self.draggable = DraggableCircle(canvas, self.circle_id, self)
         self.nextPath = []
+        self.path_mode = "Linear"
 
     # ... rest of Player class unchanged
 
@@ -145,34 +153,38 @@ class Player:
     def getPath(self, i):
         return self.nextPath[i]
         
-    def calculateLastPath(self):
-        self.nextPath[-1].calculateFunction()
+    def calculateLastPath(self, center=(0,0)):
+        self.getLastPath().center = center
+        self.getLastPath().calculateFunction()
         
     def createNextPath(self, start, duration, start_time, end = (0,0), pathType = "Straight"):
         self.nextPath.append(Path(start, end, pathType, duration, start_time))
         
     def reviseLastPathEnd(self, end):
-        self.nextPath[-1].end = end
+        self.getLastPath().end = end
 
     def finalUpdate(self):
         self.currentX = self.nextX
         self.currentY = self.nextY
 
 class Path:
-    def __init__(self, start, end, pathType, duration, start_time = 0.0):
+    def __init__(self, start, end, pathType, duration, start_time = 0.0, center = None):
         self.start = start
         self.end = end
         self.duration = duration
         self.function = None
         self.pathType = pathType
         self.start_time = start_time
+        self.center = center
 
-    def calculateFunction(self, center = (0,0)):
+    def calculateFunction(self):
         if self.pathType == "Straight":
             self.function = returnLinearFunction(self.start, self.end, self.duration, self.start_time)
             
-        if self.pathType == "Circular":
-            self.function = returnLinearFunction(self.start, self.end, self.duration, center, self.start_time)
+        elif self.pathType == "Circular":
+            if self.center is None:
+                raise ValueError("Center not set for circular path.")
+            self.function = returnCircularFunction(self.start, self.end, self.duration, self.center, self.start_time)
 
     def currentPosition(self, currentTime):
         if self.function is None:
@@ -210,7 +222,7 @@ def open():
     done_button.pack()
 
 def submit():
-    global player_id, player_color, change_id, change_color, update_player, animation_save, new_show, move_duration, total_duration, canvas, display_animation
+    global player_id, player_color, change_id, change_color, update_player, animation_save, new_show, move_duration, total_duration, canvas, display_animation, linear_button, circular_button, path_mode_var
     
     player_amt = players_input.get()
     show_preferences.destroy()
@@ -221,15 +233,13 @@ def submit():
     new_show.title("New Show")
     new_show.geometry("600x850")
     
-    # Instead of matplotlib FigureCanvas, just show canvas (already packed)
-    # Optionally you could pack a new canvas in new_show but here we use main canvas
-    
     # Create and pack the canvas
     canvas = tk.Canvas(new_show, width=photo.width(), height=photo.height())
     canvas.pack()
     
     canvas.create_image(0, 0, image=photo, anchor="nw")
     canvas.bg_photo = photo
+
     
     for i in range(int(player_amt)):
         currField.add_player(Player((60,30), "Player " + str(i + 1)))
@@ -255,6 +265,13 @@ def submit():
     move_duration = ttk.Entry(new_show, width=50)
     move_duration.pack()
     
+    path_mode_var = tk.StringVar(value="Linear")
+    linear_button = tk.Radiobutton(new_show, text="Linear", variable=path_mode_var, value="Linear", command=update_path_mode)
+    circular_button = tk.Radiobutton(new_show, text="Circular", variable=path_mode_var, value="Circular", command=update_path_mode)
+    linear_button.pack()
+    circular_button.pack()
+    #tk.Radiobutton(new_show, text="Bezier", variable=path_mode, value="Bezier").pack()
+    
     animation_save = ttk.Button(master=new_show, text="Save Start", command=save_start)
     animation_save.pack()
     
@@ -264,8 +281,14 @@ def submit():
     quit_btn = ttk.Button(master=new_show, text="Quit", command=home_screen)
     quit_btn.pack()
     
-    currField.display_static()
-
+def update_path_mode():
+    selected_mode = path_mode_var.get()
+    current_player_name = player_id.cget("text")
+    player = currField.get_player(current_player_name)
+    if player:
+        player.path_mode = selected_mode
+        print(f"Updated {player.id} path_mode to {selected_mode}")
+    
 def start_animation():
     currField.run_simulation(total_duration)
     
@@ -286,21 +309,100 @@ def save_start():
         coords = canvas.coords(player.circle_id)
         cx = (coords[0] + coords[2]) / 2
         cy = (coords[1] + coords[3]) / 2
-        player.createNextPath(start=(cx, cy), duration=animation_duration, start_time=total_duration)
+        
+        print(player.path_mode)
+        
+        if player.path_mode == "Linear":
+            player.createNextPath(start=(cx, cy), duration=animation_duration, start_time=total_duration)
+        elif player.path_mode == "Circular":
+            player.createNextPath(start=(cx, cy), duration=animation_duration, start_time=total_duration, pathType="Circular")
         
     total_duration += animation_duration
         
 def save_end():
-    display_animation.config(state="normal")
+    global current_center_index, centers_needed
+    
+    save_any_center = False
+    centers_needed = []
     
     for player in currField.players.values():
         coords = canvas.coords(player.circle_id)
         cx = (coords[0] + coords[2]) / 2
         cy = (coords[1] + coords[3]) / 2
         player.reviseLastPathEnd((cx, cy))
-        player.calculateLastPath()
         
-    animation_save.config(text="Save Start", command=save_start)
+        if player.path_mode == "Linear":
+            player.calculateLastPath()
+        elif player.path_mode == "Circular":
+            save_any_center = True
+            centers_needed.append(player)
+    
+    if not save_any_center:
+        animation_save.config(text="Save Start", command=save_start)
+        display_animation.config(state="normal")
+    else:  
+        current_center_index = 0
+        animation_save.config(text="Save Rotation Point", command=save_center)
+        canvas.bind("<Button-1>", handle_center_click)  # start listening for clicks
+        
+        player = centers_needed[current_center_index]
+    
+        #start
+        create_circle(player.getLastPath().start, color='blue', tag = 'center_dot')
+        
+        #end
+        create_circle(player.getLastPath().end, color='blue', tag = 'center_dot')
+
+center_circle_id = None
+def handle_center_click(event):
+    global current_center_index, centers_needed, center, center_circle_id
+    
+    if current_center_index >= len(centers_needed):
+        return  # safety
+    
+    player = centers_needed[current_center_index]
+    center = (event.x, event.y)
+    
+    if center_circle_id == None:
+        center_circle_id = create_circle(center, color = 'purple', tag='center_dot')
+    else:
+        canvas.coords(center_circle_id, center[0] - 5, center[1] - 5, center[0] + 5, center[1] + 5)
+    
+    
+
+    
+
+    
+    
+    print(f"Center assigned for {player.id} at {center}")
+    
+              
+        
+def save_center():
+    global current_center_index, center_circle_id
+    player = centers_needed[current_center_index]
+    player.getLastPath().center = center
+    player.calculateLastPath(center)
+    current_center_index += 1
+    
+    if current_center_index >= len(centers_needed):
+        # Done assigning centers
+        canvas.unbind("<Button-1>")
+        #animation_save.config(text="Save Start", command=save_start, state="normal")
+        animation_save.config(text="Save Start", command=save_start)
+        display_animation.config(state="normal")
+        canvas.delete('center_dot')
+        center_circle_id = None
+        
+    else:
+        
+        player = centers_needed[current_center_index]
+            
+        #start
+        create_circle(player.getLastPath().start, color='blue', tag='center_dot')
+        
+        #end
+        create_circle(player.getLastPath().end, color='blue', tag = 'center_dot')
     
 def update_player_event():
     
