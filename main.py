@@ -121,7 +121,7 @@ class DraggableCircle:
         # Optional: logic when mouse released
         canvas.delete('possible_path')
         
-        print(canvas.gettags(self.oval_id))
+        
         
         if canvas.gettags(self.oval_id)[0] == 'center_dot':
             path = copy.copy(self.player.getLastPath())
@@ -200,7 +200,6 @@ class Path:
             self.function = returnCircularFunction(self.start, self.end, self.duration, self.third_point, self.start_time)
             
         elif self.pathType == "Bezier":
-            print("Calculating Bezier Function")
             if self.third_point is None:
                 raise ValueError("Third Point not set for Quadratic Bezier path.")
             self.function = returnQuadraticBezierFunction(self.start, self.end, self.duration, self.third_point, self.start_time)
@@ -335,14 +334,12 @@ def save_start():
         cx = (coords[0] + coords[2]) / 2
         cy = (coords[1] + coords[3]) / 2
         
-        print(player.path_mode)
-        
+       
         if player.path_mode == "Linear":
             player.createNextPath(start=(cx, cy), duration=animation_duration, start_time=total_duration)
         elif player.path_mode == "Circular":
             player.createNextPath(start=(cx, cy), duration=animation_duration, start_time=total_duration, pathType="Circular")
         elif player.path_mode == "Bezier":
-            print("Creating Bezier Path")
             player.createNextPath(start=(cx, cy), duration=animation_duration, start_time=total_duration, pathType="Bezier")
         
     total_duration += animation_duration
@@ -360,7 +357,6 @@ def save_end():
         coords = canvas.coords(player.circle_id)
         
         if len(coords) < 4:
-            print(f"Warning: Invalid or missing coordinates for player {player.id}")
             continue  # Skip this player or handle differently
 
         
