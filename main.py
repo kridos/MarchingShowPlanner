@@ -176,10 +176,6 @@ class Player:
     def reviseLastPathEnd(self, end):
         self.getLastPath().end = end
 
-    # def finalUpdate(self):
-    #     self.currentX = self.nextX
-    #     self.currentY = self.nextY
-
 class Path:
     def __init__(self, start, end, pathType, duration, start_time = 0.0, center = None):
         self.start = start
@@ -233,7 +229,10 @@ def open():
     player_amt = ttk.Label(master=show_preferences, text = "Enter Amount of Players", font= 'Arial 20')
     player_amt.pack()
     
-    players_input = ttk.Entry(show_preferences, width=50)
+    vcmd = (show_preferences.register(valid_players), "%P")
+
+    
+    players_input = ttk.Entry(show_preferences, width=50, validate='key', validatecommand=vcmd)
     players_input.pack()
     
     done_button = ttk.Button(master=show_preferences, text="Done", command=submit)
@@ -243,6 +242,10 @@ def submit():
     global player_id, player_color, change_id, change_color, update_player, animation_save, new_show, move_duration, total_duration, canvas, display_animation, path_mode_var
     
     player_amt = players_input.get()
+    
+    if player_amt == "":
+        return
+        
     show_preferences.destroy()
     
     
@@ -280,7 +283,9 @@ def submit():
     duration_label = ttk.Label(master=new_show, text = "Duration Time (Seconds)", font= 'Arial 24')
     duration_label.pack()
     
-    move_duration = ttk.Entry(new_show, width=50)
+    vcmd = (new_show.register(valid_duration), "%P")
+
+    move_duration = ttk.Entry(new_show, width=50, validate='key', validatecommand=vcmd)
     move_duration.pack()
     
     path_mode_var = tk.StringVar(value="Linear")
@@ -296,6 +301,20 @@ def submit():
     
     quit_btn = ttk.Button(master=new_show, text="Quit", command=home_screen)
     quit_btn.pack()
+    
+def valid_duration(proposed):
+    return (is_decimal(proposed) and float(proposed) > 0) or proposed == ""
+
+def valid_players(proposed):
+    return (proposed.isdigit() and int(proposed)) > 0 or proposed == ""
+
+def is_decimal(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
     
 def update_path_mode():
     current_player_name = player_id.cget("text")
@@ -316,6 +335,9 @@ def home_screen():
     
 def save_start():
     global animation_duration, total_duration, animation_save
+    
+    if move_duration.get() == "":
+        return
     
     display_animation.config(state="disabled")
     
@@ -459,8 +481,6 @@ def update_player_event():
     
     change_id.delete(0, tk.END)
     change_color.delete(0, tk.END)
-    
-    currField.display_static()
 
 # Main window UI
 
