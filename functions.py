@@ -31,3 +31,14 @@ def returnCircularFunction(start, end, duration, center, start_time = 0.0):
         
 
     return circularOutput
+
+
+def returnQuadraticBezierFunction(start, end, duration, third_point, start_time = 0.0):
+    
+    def bezierOutput(currentTime):
+        t = ((currentTime - start_time) / duration)
+        x = (1 - t) ** 2 * start[0] + 2 * (1 - t) * t * third_point[0] + t ** 2 * end[0]
+        y = (1 - t) ** 2 * start[1] + 2 * (1 - t) * t * third_point[1] + t ** 2 * end[1]
+        return (x, y)
+    
+    return bezierOutput
